@@ -1,2 +1,4 @@
 
 .vscode/c_cpp_properties.json
+*.lock
+*.lock~
