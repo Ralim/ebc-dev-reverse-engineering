@@ -472,7 +472,8 @@ int ebc_lut_update(ebc *ebc) {
       if (wf_table_ptr == (u8 *)0x0) {
         res = printk("\x013No memory for ebc wavform table, need %d byte\n",
                      (ulong)((ebc->info).lut_data.frame_num << 0x10));
-        // TODO WAS A BREAKPOINT HERE MIGHT BE BROKEN PATH (maybe...)
+        // There was a breakpoint here, @smaeul pointed out this is the bug call
+        BUG();
         return res;
       }
       if (frame_num != 0) {
