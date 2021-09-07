@@ -399,7 +399,7 @@ void ebc_frame_timeout(timer_list *t) {
   return;
 }
 
-int ebc_lut_update(ebc *ebc) {
+int ebc_lut_update(struct ebc *ebc) {
   struct epd_lut_data *out;
   long lVar1;
   ulong uVar2;

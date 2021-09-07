@@ -1,7 +1,5 @@
 #include "epd_lut.h"
-#include <kernel.h>
-#include <stdint.h>
-#include <string.h>
+#include <linux/string.h>
 
 struct pvi_waveform {
   uint32_t checksum;
@@ -80,7 +78,8 @@ void get_lut_gray16_data(uint *dst, int frame_num)
         waveform_ptr = iterate_over_waveform_data_ptr;
         do {
           psVar1 = waveform_ptr->waveformData;
-          waveform_ptr = (struct_waveforms *)(waveform_ptr->waveformData + 1);
+          waveform_ptr =
+              (struct struct_waveforms *)(waveform_ptr->waveformData + 1);
           puVar3 = puVar2 + 0x10;
           *puVar2 = *puVar2 | (uint)psVar1->waveformdata[0]
                                   << (ulong)(uVar5 & 0x1f);
@@ -106,7 +105,8 @@ void get_lut_gray16_data(uint *dst, int frame_num)
 }
 
 // Get the lookup table for waveforms for frame N of 2 levels of grey
-
+// TODO This function needs to be inspected a little as the ptr_to_global
+// assignment doesnt really make a lot of sense
 void get_lut_gray2_data(uint *dst, int frame_num)
 
 {
@@ -132,9 +132,9 @@ void get_lut_gray2_data(uint *dst, int frame_num)
         uVar4 |= (uint)*pbVar1 << (ulong)uVar2;
         pbVar1 = pbVar1 + 0x20;
       } while (uVar1 != 0x20);
-      uVar2 = ptr_to_global->gray_2_data_2d_array[1];
+      uVar2 = ptr_to_global->gray_2_data_2d_array[1][0];
       uVar1 = 0;
-      ptr_to_global->gray_2_data_2d_array[0] = uVar4;
+      ptr_to_global->gray_2_data_2d_array[0][0] = uVar4;
       pbVar1 = ptr_grey_2_data_lookup;
       do {
         uVar4 = uVar1 & 0x1f;
@@ -142,7 +142,7 @@ void get_lut_gray2_data(uint *dst, int frame_num)
         uVar2 |= (uint)*pbVar1 << (ulong)uVar4;
         pbVar1 = pbVar1 + 0x20;
       } while (uVar1 != 0x20);
-      ptr_to_global->gray_2_data_2d_array[1] = uVar2;
+      ptr_to_global->gray_2_data_2d_array[1][0] = uVar2;
       ptr_to_global =
           (struct struct_global_data *)ptr_to_global->gray_2_data_2d_array[1];
       ptr_grey_2_data_lookup = ptr_grey_2_data_lookup + 0x400;
@@ -150,7 +150,7 @@ void get_lut_gray2_data(uint *dst, int frame_num)
           (struct struct_global_data *)
               GlobalStruct.gray_2_data_2d_array[(ulong)(frame_num - 1) + 1])
         break;
-      uVar4 = ptr_to_global->gray_2_data_2d_array[0];
+      uVar4 = ptr_to_global->gray_2_data_2d_array[0][0];
     }
   }
   memcpy(dst, &GlobalStruct, (long)(frame_num << 3));
@@ -159,9 +159,7 @@ void get_lut_gray2_data(uint *dst, int frame_num)
 
 // Lookup waveform mode index from type; updates the pvi modes global
 
-int get_wf_mode_index(epd_lut_type lut_type)
-
-{
+int get_wf_mode_index(enum epd_lut_type lut_type) {
   int retVal;
   uint8_t mode_version;
 
@@ -235,8 +233,8 @@ int get_wf_mode_index(epd_lut_type lut_type)
     GlobalStruct.pvi_modes[6] = 5;
     GlobalStruct.pvi_modes[7] = 6;
     printk("pvi : Unknow waveform version %x,%x\n",
-           (ulong)(GlobalStruct.global_waveform)->mode_version,
-           (ulong)(GlobalStruct.global_waveform)->wfm_rev);
+           (int)(GlobalStruct.global_waveform)->mode_version,
+           (int)(GlobalStruct.global_waveform)->wfm_rev);
   }
   retVal = GlobalStruct.pvi_modes[3];
   if (((lut_type != WF_TYPE_AUTO) && (lut_type != WF_TYPE_GRAY16)) &&
@@ -287,10 +285,11 @@ int decodewaveform(uint8_t *data, int maxpic, int want_pic)
   int iVar15;
   ulong uVar16;
 
-  if (((maxpic - 0x10U & 0xffffffef) != 0) &&
-      ((want_pic - 0x10U & 0xffffffef) != 0)) {
+  if ((((maxpic - 0x10U) & 0xffffffef) != 0) &&
+      (((want_pic - 0x10U) & 0xffffffef) != 0)) {
     return (int)0xffffffea;
   }
+
   memset(&GlobalStruct.waveforms, 0, 0x80000);
   uVar16 = 0;
   uVar12 = 1;
@@ -403,13 +402,15 @@ LAB_dataheader_ff:
         *(u8 *)((uVar11 * 0x20 + (uVar14 >> 1)) * 0x20 + 0x119700 + uVar6) =
             waveform_ptr1->waveformdata[0];
         waveform_ptr1 =
-            (struct_waveforms_waveform *)(waveform_ptr1->waveformdata + 2);
+            (struct struct_waveforms_waveform *)(waveform_ptr1->waveformdata +
+                                                 2);
       } while (uVar9 != 0x20);
       uVar9 = (int)uVar14 + 2;
       uVar14 = (ulong)uVar9;
-      waveform_ptr2 = (struct_waveforms_waveform *)waveform_ptr2->waveformdata3;
+      waveform_ptr2 =
+          (struct struct_waveforms_waveform *)waveform_ptr2->waveformdata3;
     } while (uVar9 != 0x20);
-    uVar9 = (int)uVar11 + 1U & 0xff;
+    uVar9 = ((int)uVar11 + 1) & 0xff;
     uVar11 = (ulong)uVar9;
   } while (uVar9 < (uint)uVar16);
   return (uint)uVar16;
@@ -473,7 +474,7 @@ int get_wf_frm_num(int mode, int temp_index, int want_pic)
 
 // Parse waveform grey16 data using lut type field
 
-int parse_wf_gray16_with_lut_type(epd_lut_data *lut_data, uint **data,
+int parse_wf_gray16_with_lut_type(struct epd_lut_data *lut_data, uint **data,
                                   uint wf_data, uint lut_type)
 
 {
@@ -497,7 +498,7 @@ int parse_wf_gray16_with_lut_type(epd_lut_data *lut_data, uint **data,
 
 // Parse and interpret the grey2 waveform data
 
-int parse_wf_gray2(epd_lut_data *lut_data, uint **data,
+int parse_wf_gray2(struct epd_lut_data *lut_data, uint **data,
                    uint temperatureNumberLessOne, uint lut_type)
 
 {
@@ -558,7 +559,8 @@ int parse_wf_gray2(epd_lut_data *lut_data, uint **data,
 // Public:
 // Get the waveform lut based on the lut_type and current temp in C
 
-int pvi_wf_get_lut(epd_lut_data *output, epd_lut_type lut_type, int temperature)
+int pvi_wf_get_lut(struct epd_lut_data *output, enum epd_lut_type lut_type,
+                   int temperature)
 
 {
   uint uVar1;
@@ -590,7 +592,7 @@ int pvi_wf_get_lut(epd_lut_data *output, epd_lut_type lut_type, int temperature)
   if (GlobalStruct.global_waveform == (pvi_waveform *)0x0) {
     return -0x13;
   }
-  if (output == (epd_lut_data *)0x0) {
+  if (output == (struct epd_lut_data *)0x0) {
     return -0x16;
   }
   if ((temperature / 3 == pvi_wf_get_lut::sftemp / 3) &&
@@ -687,13 +689,15 @@ int pvi_wf_get_lut(epd_lut_data *output, epd_lut_type lut_type, int temperature)
                 }
               LAB_loopexit:
                 lVar15 += 2;
-                psVar13 = (struct_waveforms_waveform *)psVar13->waveformdata2;
+                psVar13 =
+                    (struct struct_waveforms_waveform *)psVar13->waveformdata2;
                 lVar16 += 2;
                 puVar14 = puVar14 + 2;
               } while (lVar15 != 0x40);
               wf_data += 1;
               psVar17 =
-                  (struct_waveforms_waveform *)(psVar17->waveformdata + 1);
+                  (struct struct_waveforms_waveform *)(psVar17->waveformdata +
+                                                       1);
               uVar6 += 2;
               if (wf_data == 0x20) {
                 memcpy(output_buffer, GlobalStruct.gray32_data,
@@ -874,20 +878,18 @@ int pvi_wf_input(void *waveform_file)
     return 0;
   }
   printk("pvi : Unknow waveform version %x,%x, may be wrong waveform file\n",
-         (ulong)version, (ulong) * (uint8_t *)((long)waveform_file + 0x16));
+         (int)version, (int)*(uint8_t *)((long)waveform_file + 0x16));
   return -8;
 }
 
 // Get version name text from the loaded global waveform
 
-char *pvi_wf_get_version(void)
-
-{
+const char *pvi_wf_get_version(void) {
   long iterator;
   struct pvi_waveform *ptr_global_waveform;
 
   ptr_global_waveform = GlobalStruct.global_waveform;
-  if (GlobalStruct.global_waveform != (pvi_waveform *)0x0) {
+  if (GlobalStruct.global_waveform != (struct pvi_waveform *)0x0) {
     iterator = 0;
     do {
       GlobalStruct.spi_id_buffer_aka_name[iterator] =
